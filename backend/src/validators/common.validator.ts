@@ -32,7 +32,10 @@ export type PaginationQuery = z.infer<typeof paginationQuery>;
  * client downscales before upload, so this ceiling should never be hit in
  * normal use — it is a backstop, not the expected size.
  */
-export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+// 1MB, not 2: the client targets ~120KB, so anything near this ceiling means
+// something bypassed compression. Smaller cap = smaller documents = faster
+// reads on every query that touches the record.
+export const MAX_IMAGE_BYTES = 1024 * 1024;
 
 const IMAGE_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/;
 

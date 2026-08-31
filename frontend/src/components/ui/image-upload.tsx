@@ -3,47 +3,93 @@ import { Icons } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 
-/** Matches MAX_IMAGE_BYTES on the API. */
-const MAX_BYTES = 2 * 1024 * 1024;
-const MAX_EDGE = 1400;
-const QUALITY = 0.82;
+/** Matches MAX_IMAGE_BYTES on the API — a backstop, not the expected size. */
+const MAX_BYTES = 1024 * 1024;
+
+/** What we actually aim for; screenshots compress well below this. */
+const TARGET_BYTES = 120 * 1024;
+
+/** Displayed at ~600px wide at most, so anything beyond this is wasted bytes. */
+const MAX_EDGE = 1000;
+
+const QUALITY_STEPS = [0.8, 0.65, 0.5, 0.4, 0.3];
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
-/**
- * Downscales and re-encodes before upload.
- *
- * Images are stored inline in Mongo, so a raw 4MB screenshot would become ~5MB
- * of base64 on the document. Re-encoding a screenshot to a 1400px JPEG usually
- * lands under 300KB with no visible loss at the sizes we display.
- */
-const compress = (file: File): Promise<string> =>
+/** WebP is roughly 25–35% smaller than JPEG at the same quality. */
+const supportsWebp = (): boolean => {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL('image/webp').startsWith('data:image/webp');
+  } catch {
+    return false;
+  }
+};
+
+const loadImage = (file: File): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Could not read that file'));
     reader.onload = () => {
       const img = new Image();
       img.onerror = () => reject(new Error('That file is not a readable image'));
-      img.onload = () => {
-        const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error('Could not process the image'));
-
-        // GIF/PNG transparency would go black on a JPEG canvas.
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        resolve(canvas.toDataURL('image/jpeg', QUALITY));
-      };
+      img.onload = () => resolve(img);
       img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   });
+
+/**
+ * Downscales and re-encodes, stepping the quality down until the result fits
+ * the target.
+ *
+ * Images live inline in the Mongo document, so bytes here are bytes on every
+ * read of that record. A 4MB screenshot becomes ~5.4MB of base64 untouched;
+ * this lands the same image around 60–120KB, which is a ~40× reduction with no
+ * visible loss at the size it is displayed.
+ */
+export const compressImage = async (file: File): Promise<string> => {
+  const img = await loadImage(file);
+
+  const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not process the image');
+
+  // Transparency would render black on an opaque encode.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const mime = supportsWebp() ? 'image/webp' : 'image/jpeg';
+
+  let encoded = canvas.toDataURL(mime, QUALITY_STEPS[0]);
+  for (const quality of QUALITY_STEPS.slice(1)) {
+    if (encoded.length <= TARGET_BYTES) break;
+    encoded = canvas.toDataURL(mime, quality);
+  }
+
+  // Still too big at the lowest quality: shrink the pixels instead.
+  if (encoded.length > TARGET_BYTES) {
+    const shrink = document.createElement('canvas');
+    shrink.width = Math.max(1, Math.round(canvas.width * 0.7));
+    shrink.height = Math.max(1, Math.round(canvas.height * 0.7));
+    const shrinkCtx = shrink.getContext('2d');
+    if (shrinkCtx) {
+      shrinkCtx.fillStyle = '#ffffff';
+      shrinkCtx.fillRect(0, 0, shrink.width, shrink.height);
+      shrinkCtx.drawImage(canvas, 0, 0, shrink.width, shrink.height);
+      encoded = shrink.toDataURL(mime, 0.5);
+    }
+  }
+
+  return encoded;
+};
 
 export const ImageUpload = ({
   value,
@@ -78,7 +124,7 @@ export const ImageUpload = ({
 
       setBusy(true);
       try {
-        const encoded = await compress(file);
+        const encoded = await compressImage(file);
         if (encoded.length > MAX_BYTES) {
           setError('Still too large after compression — try a smaller crop');
           return;
@@ -110,6 +156,7 @@ export const ImageUpload = ({
     return () => zone.removeEventListener('paste', onPaste);
   }, [accept, disabled]);
 
+  // base64 is ~4/3 the size of the bytes it encodes.
   const sizeLabel = value ? `${Math.round((value.length / 1024) * 0.75)} KB` : null;
 
   return (
