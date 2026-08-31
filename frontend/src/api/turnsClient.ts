@@ -12,6 +12,13 @@ export interface TurnsEnvelope<T> {
 }
 
 /**
+ * Turns answers 401 for authorisation problems too, not just expiry. Treating
+ * those as a dead session logs the user out of a perfectly good one.
+ */
+const isPermissionMessage = (message: string): boolean =>
+  /not allowed|permission|forbidden|invalid (email|credential|password)|incorrect/i.test(message);
+
+/**
  * Client for the turns backend.
  *
  * No HMAC signing: that is only required for the ADMIN platform. We identify
@@ -53,10 +60,20 @@ class TurnsClient {
       (response) => response,
       async (error) => {
         const status = error.response?.status ?? 0;
-        const original = error.config as AxiosRequestConfig & { _retried?: boolean };
+        const original = error.config as AxiosRequestConfig & {
+          _retried?: boolean;
+          _noAuthRedirect?: boolean;
+        };
+        const message: string = error.response?.data?.message ?? error.message ?? '';
 
-        // One refresh attempt per request; a second failure signs the user out.
-        if (status === 401 && original && !original._retried && tokens.refresh('turns')) {
+        // Not every 401 means the session died. Turns also answers 401 for
+        // bad credentials and for "this platform is not allowed to access this
+        // resource" — signing the user out on those was logging people out on
+        // every page load and on every failed login attempt.
+        const isSessionFailure =
+          status === 401 && !original?._noAuthRedirect && !isPermissionMessage(message);
+
+        if (isSessionFailure && original && !original._retried && tokens.refresh('turns')) {
           original._retried = true;
           try {
             const fresh = await this.refreshAccessToken();
@@ -68,14 +85,13 @@ class TurnsClient {
           }
         }
 
-        if (status === 401) {
+        // Only end the session when there was one to end: a 401 with no refresh
+        // token is simply an unauthenticated call, not an expiry.
+        if (isSessionFailure && tokens.access('turns') && tokens.refresh('turns')) {
           forceLogout('Your turns session expired');
         }
 
-        throw new ApiError(
-          error.response?.data?.message ?? error.message ?? 'Turns request failed',
-          status,
-        );
+        throw new ApiError(message || 'Turns request failed', status);
       },
     );
   }

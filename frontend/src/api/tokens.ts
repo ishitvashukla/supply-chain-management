@@ -33,6 +33,7 @@ const BID_KEY = `${NS}bid`;
  * the next attempt reporting "No business selected".
  */
 const SESSION_KEYS = [
+  `${NS}locale`,
   `${NS}turns_user_id`,
   `${NS}turns_role`,
   `${NS}turns_profile`,
@@ -101,6 +102,23 @@ export const session = {
 
   role: (): string | null => read(`${NS}turns_role`),
   setRole: (value: string): void => write(`${NS}turns_role`, value),
+
+  /**
+   * Currency and country, as reported by the turns login response
+   * (`currency`, `current_build`). Kept so money renders correctly for the
+   * business without a second round trip.
+   */
+  locale: (): { currency: string; build: string } | null => {
+    const raw = read(`${NS}locale`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { currency: string; build: string };
+    } catch {
+      return null;
+    }
+  },
+  setLocale: (value: { currency: string; build: string }): void =>
+    write(`${NS}locale`, JSON.stringify(value)),
 
   profile: <T>(): T | null => {
     const raw = read(`${NS}turns_profile`);

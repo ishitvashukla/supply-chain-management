@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import { session } from '@/api/tokens';
 import { twMerge } from 'tailwind-merge';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -7,12 +8,36 @@ dayjs.extend(relativeTime);
 
 export const cn = (...inputs: ClassValue[]): string => twMerge(clsx(inputs));
 
-export const formatCurrency = (value: number, currency = 'USD'): string =>
-  new Intl.NumberFormat('en-US', {
+/** Country reported by turns → the ISO currency and locale to format with. */
+const CURRENCY_BY_BUILD: Record<string, { code: string; locale: string }> = {
+  IN: { code: 'INR', locale: 'en-IN' },
+  US: { code: 'USD', locale: 'en-US' },
+  CA: { code: 'CAD', locale: 'en-CA' },
+  GB: { code: 'GBP', locale: 'en-GB' },
+  AU: { code: 'AUD', locale: 'en-AU' },
+};
+
+const DEFAULT_CURRENCY = { code: 'USD', locale: 'en-US' };
+
+/**
+ * Resolved from the turns login response, so an Indian business sees ₹ and a
+ * US one sees $ without any per-call plumbing. Read at call time rather than
+ * captured at module load — the value only exists once someone has signed in.
+ */
+export const activeCurrency = (): { code: string; locale: string } => {
+  const locale = session.locale();
+  if (!locale) return DEFAULT_CURRENCY;
+  return CURRENCY_BY_BUILD[locale.build] ?? DEFAULT_CURRENCY;
+};
+
+export const formatCurrency = (value: number, currency?: string): string => {
+  const active = activeCurrency();
+  return new Intl.NumberFormat(active.locale, {
     style: 'currency',
-    currency,
+    currency: currency ?? active.code,
     maximumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0);
+};
 
 export const formatNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value ?? 0);

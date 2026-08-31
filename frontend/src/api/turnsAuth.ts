@@ -31,7 +31,10 @@ export interface TurnsLoginData {
   details: TurnsLoginDetails;
   access_token: string;
   refresh_token: string;
+  /** Symbol as turns reports it, e.g. "₹" or "$". */
   currency?: string;
+  /** Country the business runs in: "IN", "US", … */
+  current_build?: string;
   /** Present only when the account has 2FA turned on. */
   twofa_enabled?: boolean;
   temp_token?: string;
@@ -101,6 +104,9 @@ export const turnsLogin = async (
   const response = await turnsApi.post<TurnsLoginData>(
     TURNS.LOGIN,
     loginBody(role, username, password.trim()),
+    // Bad credentials come back as 401; that must surface as a form error, not
+    // as "your session expired".
+    { _noAuthRedirect: true } as never,
   );
 
   if (!response.status || !response.data) {
@@ -119,6 +125,10 @@ export const turnsLogin = async (
   }
 
   tokens.set('turns', data.access_token, data.refresh_token);
+  session.setLocale({
+    currency: data.currency ?? '$',
+    build: (data.current_build ?? 'US').toUpperCase(),
+  });
   session.setRole(role);
   session.setUserId(resolveUserId(data.details));
   session.setProfile({
@@ -134,7 +144,7 @@ export const turnsLogin = async (
 
 export const turnsLogout = async (): Promise<void> => {
   try {
-    await turnsApi.post<TurnsEnvelope<unknown>>(TURNS.LOGOUT, {});
+    await turnsApi.post<TurnsEnvelope<unknown>>(TURNS.LOGOUT, {}, { _noAuthRedirect: true } as never);
   } catch {
     // A failed logout call must never block clearing the local session.
   }
