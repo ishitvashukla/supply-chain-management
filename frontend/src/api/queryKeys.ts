@@ -1,0 +1,22 @@
+/** Central query keys so invalidation stays predictable. */
+export const qk = {
+  me: ['me'] as const,
+  stores: (params?: unknown) => ['stores', params] as const,
+  store: (id: string) => ['store', id] as const,
+  users: (params?: unknown) => ['users', params] as const,
+  catalogTree: (params?: unknown) => ['catalog-tree', params] as const,
+  departments: (params?: unknown) => ['departments', params] as const,
+  priceLists: (params?: unknown) => ['price-lists', params] as const,
+  services: (params?: unknown) => ['services', params] as const,
+  categories: (params?: unknown) => ['categories', params] as const,
+  products: (params?: unknown) => ['products', params] as const,
+  product: (id: string) => ['product', id] as const,
+  storeItems: (storeId: string, params?: unknown) => ['store-items', storeId, params] as const,
+  orders: (params?: unknown) => ['orders', params] as const,
+  order: (id: string) => ['order', id] as const,
+  payments: (params?: unknown) => ['payments', params] as const,
+  outstanding: ['payments', 'outstanding'] as const,
+  movements: (params?: unknown) => ['movements', params] as const,
+  lowStock: (params?: unknown) => ['low-stock', params] as const,
+  stats: (name: string, params?: unknown) => ['stats', name, params] as const,
+};

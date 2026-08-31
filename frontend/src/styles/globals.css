@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 8%;
+
+    /* Teal, taken from the CleanOps wireframes */
+    --primary: 174 72% 34%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 20%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 174 60% 94%;
+    --accent-foreground: 174 72% 24%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 62% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 40% 12%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 174 72% 34%;
+
+    --chart-1: 174 72% 40%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 96%;
+
+    --card: 240 8% 10%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 240 8% 10%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 174 65% 45%;
+    --primary-foreground: 240 10% 6%;
+
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 240 6% 16%;
+    --muted-foreground: 240 5% 62%;
+
+    --accent: 174 40% 18%;
+    --accent-foreground: 174 65% 72%;
+
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 52% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 88% 55%;
+    --warning-foreground: 30 40% 10%;
+
+    --info: 217 85% 62%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 240 6% 20%;
+    --input: 240 6% 20%;
+    --ring: 174 65% 45%;
+
+    --chart-1: 174 65% 48%;
+    --chart-2: 217 85% 65%;
+    --chart-3: 38 88% 58%;
+    --chart-4: 280 60% 68%;
+    --chart-5: 340 70% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Applied at the root so portals (dialogs, toasts) inherit it too. */
+    font-family:
+      'Plus Jakarta Sans',
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    /* Respect notches when this is wrapped as a mobile app. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Keep long tables scrollable rather than blowing out the page on mobile. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
+  }
+}
