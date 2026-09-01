@@ -63,8 +63,18 @@ npm start             # serve everything on $PORT
 5. Deploy. First build takes a few minutes; afterwards the app is at
    `https://<name>.onrender.com`.
 
+Two variables are worth setting explicitly once the URL exists:
+
+- `NODE_ENV=production` — without it the API returns stack traces in error
+  responses.
+- `CORS_ORIGIN=https://<name>.onrender.com` — the SPA is same-origin so nothing
+  needs `*`.
+
 A free service sleeps after ~15 minutes idle and takes ~30s to wake, so the
-first request after a pause is slow. That is the plan, not the app.
+first request after a pause is slow. During a deploy the free plan has no
+second instance to serve from, so requests briefly return a Render-generated
+404 carrying `x-render-routing: no-server`. That header is the tell: it is
+Render's router, not the app.
 
 Nothing else is needed: the frontend has no build-time configuration
 (`VITE_API_URL` defaults to `/api/v1`, which is correct same-origin), and the

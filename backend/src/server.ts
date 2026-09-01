@@ -30,9 +30,16 @@ const shutdown = async (signal: string): Promise<void> => {
   setTimeout(() => process.exit(1), 10_000).unref();
 };
 
+/**
+ * Log, but keep serving.
+ *
+ * Tearing the server down over one stray rejection turns a single failed
+ * background call into total downtime — and on a host that restarts on exit,
+ * into a restart loop. An uncaught *exception* is different: the process may be
+ * in an unknown state, so that one still exits.
+ */
 process.on('unhandledRejection', (reason) => {
-  logger.error('Unhandled rejection:', reason);
-  void shutdown('unhandledRejection');
+  logger.error('Unhandled rejection (continuing):', reason);
 });
 
 process.on('uncaughtException', (error: Error) => {
