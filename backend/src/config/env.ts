@@ -12,6 +12,26 @@ const requireEnv = (key: string): string => {
   return value;
 };
 
+/**
+ * Where the built SPA lives.
+ *
+ * Anchored to this file rather than to `process.cwd()`: a host may start the
+ * process from the repo root, from `backend/`, or via a process manager, and
+ * cwd differs in each. `__dirname` is `dist/config` at runtime, so the client
+ * sits two levels up.
+ */
+const resolveClientDir = (): string | null => {
+  if (process.env.CLIENT_DIR) return path.resolve(process.env.CLIENT_DIR);
+
+  const candidates = [
+    path.resolve(__dirname, '../../public/client'),
+    path.resolve(process.cwd(), 'public/client'),
+    path.resolve(process.cwd(), 'backend/public/client'),
+  ];
+
+  return candidates.find((dir) => existsSync(path.join(dir, 'index.html'))) ?? null;
+};
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT) || 8000,
@@ -37,11 +57,7 @@ export const env = {
    * Directory holding the built frontend. When set, this process serves the
    * SPA as well as the API; when unset (local dev) vite serves it instead.
    */
-  clientDir: process.env.CLIENT_DIR
-    ? path.resolve(process.env.CLIENT_DIR)
-    : existsSync(path.resolve(process.cwd(), 'public/client/index.html'))
-      ? path.resolve(process.cwd(), 'public/client')
-      : null,
+  clientDir: resolveClientDir(),
   get isProd(): boolean {
     return this.nodeEnv === 'production';
   },

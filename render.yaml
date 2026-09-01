@@ -1,19 +1,32 @@
-# Render blueprint — free tier.
-# A free service sleeps after ~15 minutes idle and takes ~30s to wake, which is
-# fine for testing. Secrets are marked sync:false so they are entered in the
-# dashboard rather than committed here.
+# Render blueprint — free plan, native Node (no Docker).
+#
+# One web service serves both: the build compiles the SPA into
+# backend/public/client and the API serves it from there, so there is a single
+# URL, no CORS, and nothing to keep in step between two deployments.
+#
+# A free service sleeps after ~15 minutes idle and takes ~30s to wake. Fine for
+# testing; it is not a production plan.
 services:
   - type: web
     name: supply-chain-management
-    runtime: docker
+    runtime: node
     plan: free
-    dockerfilePath: ./Dockerfile
+    region: oregon
+    branch: main
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
     healthCheckPath: /api/v1/health
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
+
+      # Set this in the dashboard — it holds the database password.
       - key: MONGO_URI
         sync: false
+
+      # Generated once by Render and kept stable across deploys.
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
@@ -22,6 +35,7 @@ services:
         value: 3d
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
+
       - key: TURNS_BASE_URL
         value: https://{BUSINESS_ID}.turnsapp.com/
       - key: TURNS_APP_NAME
@@ -30,6 +44,7 @@ services:
         value: "10000"
       - key: TURNS_OS_VERSION
         value: "24"
-      # The SPA is served from this same origin, so no cross-origin access.
+
+      # The SPA is served from this same origin, so nothing is cross-origin.
       - key: CORS_ORIGIN
         value: "*"
