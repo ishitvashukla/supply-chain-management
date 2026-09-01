@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 /**
  * Optional level: a service may hold products directly, with no category.
@@ -30,14 +31,15 @@ const categorySchema = new Schema<ICategory>(
   { timestamps: true, versionKey: false, toJSON: { virtuals: true } },
 );
 
-categorySchema.index({ service: 1, name: 1 }, { unique: true });
+tenantUnique(categorySchema, { service: 1, name: 1 });
 
 // Unique only where a turns id exists. A plain sparse index would still
 // treat every locally-created row's `null` as a duplicate.
-categorySchema.index(
-  { turnsCategoryId: 1 },
-  { unique: true, partialFilterExpression: { turnsCategoryId: { $type: 'string' } } },
-);
+tenantUnique(categorySchema, { turnsCategoryId: 1 }, {
+  partialFilterExpression: { turnsCategoryId: { $type: 'string' } },
+});
+
+categorySchema.plugin(tenantPlugin);
 
 export const Category: Model<ICategory> = model<ICategory>('Category', categorySchema);
 export default Category;

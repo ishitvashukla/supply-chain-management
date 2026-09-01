@@ -5,6 +5,7 @@ import {
   PAYMENT_METHOD,
   type ExpenseCategory,
 } from '../constants';
+import { tenantPlugin } from './plugins/tenant.plugin';
 
 /** Store spend that isn't a purchase order — utilities, payroll, rent, etc. */
 export interface IExpense {
@@ -50,6 +51,8 @@ const expenseSchema = new Schema<IExpense>(
 );
 
 expenseSchema.index({ store: 1, incurredAt: -1 });
+
+expenseSchema.plugin(tenantPlugin);
 
 export const Expense: Model<IExpense> = model<IExpense>('Expense', expenseSchema);
 export default Expense;

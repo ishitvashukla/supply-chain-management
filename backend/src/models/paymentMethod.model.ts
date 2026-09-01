@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 /**
  * User-managed payment methods.
@@ -27,7 +28,7 @@ export type PaymentMethodDocument = HydratedDocument<IPaymentMethod>;
 const paymentMethodSchema = new Schema<IPaymentMethod>(
   {
     name: { type: String, required: [true, 'Name is required'], trim: true },
-    code: { type: String, required: true, trim: true, uppercase: true, unique: true },
+    code: { type: String, required: true, trim: true, uppercase: true },
     description: { type: String, trim: true },
     sortOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
@@ -38,6 +39,10 @@ const paymentMethodSchema = new Schema<IPaymentMethod>(
 );
 
 paymentMethodSchema.index({ sortOrder: 1, name: 1 });
+
+tenantUnique(paymentMethodSchema, { code: 1 });
+
+paymentMethodSchema.plugin(tenantPlugin);
 
 export const PaymentMethodModel: Model<IPaymentMethod> = model<IPaymentMethod>(
   'PaymentMethod',

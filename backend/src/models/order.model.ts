@@ -10,6 +10,7 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from '../constants';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 /**
  * Line items snapshot name/code/price at order time. Editing a product later
@@ -153,7 +154,7 @@ const orderActivitySchema = new Schema<IOrderActivity>(
 
 const orderSchema = new Schema<IOrder>(
   {
-    orderNumber: { type: String, required: true, unique: true },
+    orderNumber: { type: String, required: true },
     store: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
     placedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     placedByAdmin: { type: Boolean, default: false },
@@ -212,6 +213,10 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.virtual('balanceDue').get(function (this: IOrder): number {
   return Math.max(0, Number((this.total - this.amountPaid).toFixed(2)));
 });
+
+tenantUnique(orderSchema, { orderNumber: 1 });
+
+orderSchema.plugin(tenantPlugin);
 
 export const Order: Model<IOrder> = model<IOrder>('Order', orderSchema);
 export default Order;

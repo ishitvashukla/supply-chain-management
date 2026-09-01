@@ -8,6 +8,8 @@ export interface AuthUser {
   role: Role;
   /** Null for admins, the user's own store for store-scoped roles. */
   storeId: string | null;
+  /** The franchise this user belongs to; every query is scoped to it. */
+  businessId: string;
 }
 
 declare global {

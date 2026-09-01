@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
 import { ROLES, ROLE_VALUES, STORE_ROLES, type Role } from '../constants';
 import ApiError from '../utils/ApiError';
+import { tenantPlugin } from './plugins/tenant.plugin';
 
 export interface IUser {
   name: string;
@@ -19,7 +20,8 @@ export interface IUser {
   /** Set when the account is linked to a turns login rather than a local one. */
   turnsUserId?: string | null;
   turnsRole?: string | null;
-  businessId?: string | null;
+  /** Set by the tenant plugin; every user belongs to exactly one franchise. */
+  businessId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,7 +38,6 @@ const userSchema = new Schema<IUser>(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Email is not valid'],
@@ -52,7 +53,6 @@ const userSchema = new Schema<IUser>(
     tokenVersion: { type: Number, default: 0 },
     turnsUserId: { type: String, default: null, index: true },
     turnsRole: { type: String, default: null },
-    businessId: { type: String, default: null, index: true },
   },
   {
     timestamps: true,
@@ -87,6 +87,13 @@ userSchema.pre('save', async function () {
 userSchema.methods.comparePassword = function (candidate: string): Promise<boolean> {
   return bcrypt.compare(candidate, this.password);
 };
+
+/**
+ * Unique per franchise, not globally: the same person can hold an account at
+ * more than one business, and a global constraint would block the second.
+ */
+userSchema.plugin(tenantPlugin);
+userSchema.index({ businessId: 1, email: 1 }, { unique: true });
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- mongoose's query-helper slot
 type UserModel = Model<IUser, {}, IUserMethods>;

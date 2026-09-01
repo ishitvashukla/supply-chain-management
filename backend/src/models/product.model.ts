@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 export interface ITax {
   name: string;
@@ -60,7 +61,7 @@ const productSchema = new Schema<IProduct>(
   {
     name: { type: String, required: [true, 'Product name is required'], trim: true },
     turnsProductId: { type: String, default: null },
-    code: { type: String, required: true, trim: true, uppercase: true, unique: true },
+    code: { type: String, required: true, trim: true, uppercase: true },
     shortCode: { type: String, trim: true },
     description: { type: String, trim: true },
     // select:false — an inline image would bloat every list query.
@@ -89,10 +90,13 @@ productSchema.index({ service: 1, category: 1, sortOrder: 1 });
 
 // Unique only where a turns id exists. A plain sparse index would still
 // treat every locally-created row's `null` as a duplicate.
-productSchema.index(
-  { turnsProductId: 1 },
-  { unique: true, partialFilterExpression: { turnsProductId: { $type: 'string' } } },
-);
+tenantUnique(productSchema, { turnsProductId: 1 }, {
+  partialFilterExpression: { turnsProductId: { $type: 'string' } },
+});
+
+tenantUnique(productSchema, { code: 1 });
+
+productSchema.plugin(tenantPlugin);
 
 export const Product: Model<IProduct> = model<IProduct>('Product', productSchema);
 export default Product;

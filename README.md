@@ -137,6 +137,31 @@ safe:
 Image fields are `select: false`, so list endpoints never carry them; they are
 returned only on the detail endpoint that needs them.
 
+## Multi-tenancy
+
+This is a B2B product: each **business id** is a separate franchise, and one
+must never see another's stores, items, orders or users.
+
+Scoping is enforced in the model layer, not in each service. A mongoose plugin
+adds `businessId` to every tenant collection, injects it into every query, and
+stamps it on every write. Two consequences worth knowing:
+
+- **Fail-closed.** With no franchise in scope a query matches *nothing*. A
+  service that forgets to filter returns an empty list rather than everyone's
+  data.
+- **Uniqueness is per franchise.** Two businesses can both have a store coded
+  `ALPHA`, and both have turns store `68` — those are different shops. Order
+  numbering restarts at `PO-00001` for each business too.
+
+The franchise comes from the authenticated user, and the whole request runs
+inside `runInTenant`. The few operations that legitimately span franchises —
+authenticating, refresh-token lookups keyed by an unguessable `jti` — opt out
+explicitly via `runUnscoped`.
+
+Both helpers await inside the scope. Mongoose queries are lazy, so returning
+one unexecuted would run it after the scope had exited, where it would match
+nothing; awaiting internally means callers cannot get that wrong.
+
 ## Roles
 
 | | Admin | Store manager / staff |

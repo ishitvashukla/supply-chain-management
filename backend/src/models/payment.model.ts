@@ -5,6 +5,7 @@ import {
   PAYMENT_STATUS_VALUES,
   type PaymentStatus,
 } from '../constants';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 /** One payment record against an order. Orders may be paid in instalments. */
 export interface IPayment {
@@ -40,7 +41,7 @@ export type PaymentDocument = HydratedDocument<IPayment>;
 
 const paymentSchema = new Schema<IPayment>(
   {
-    reference: { type: String, required: true, unique: true },
+    reference: { type: String, required: true },
     order: { type: Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
     store: { type: Schema.Types.ObjectId, ref: 'Store', required: true, index: true },
     amount: { type: Number, required: true, min: [0.01, 'Amount must be greater than zero'] },
@@ -72,6 +73,10 @@ paymentSchema.virtual('isOverdue').get(function (this: IPayment): boolean {
   if (this.status === PAYMENT_STATUS.PAID || !this.dueDate) return false;
   return this.dueDate.getTime() < Date.now();
 });
+
+tenantUnique(paymentSchema, { reference: 1 });
+
+paymentSchema.plugin(tenantPlugin);
 
 export const Payment: Model<IPayment> = model<IPayment>('Payment', paymentSchema);
 export default Payment;

@@ -1,5 +1,6 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
 import { STOCK_HEALTH, type StockHealth } from '../constants';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 /**
  * The per-location item record — this is what makes "the item list different
@@ -52,7 +53,7 @@ const storeItemSchema = new Schema<IStoreItem>(
 );
 
 // One row per store/product pair.
-storeItemSchema.index({ store: 1, product: 1 }, { unique: true });
+tenantUnique(storeItemSchema, { store: 1, product: 1 });
 storeItemSchema.index({ store: 1, quantityOnHand: 1 });
 
 /** Derived severity used by dashboards and alerts. */
@@ -72,6 +73,8 @@ storeItemSchema.virtual('daysOfCover').get(function (this: IStoreItem): number |
   if (!this.avgDailyUsage || this.avgDailyUsage <= 0) return null;
   return Math.floor(this.quantityOnHand / this.avgDailyUsage);
 });
+
+storeItemSchema.plugin(tenantPlugin);
 
 export const StoreItem: Model<IStoreItem> = model<IStoreItem>('StoreItem', storeItemSchema);
 export default StoreItem;

@@ -10,7 +10,7 @@ import User from '../models/user.model';
 import orderService from '../services/order.service';
 import paymentService from '../services/payment.service';
 import { ensureDefaultMethods } from '../services/paymentMethod.service';
-import { clearTestDb, startTestDb, stopTestDb } from './setup';
+import { asTenant, clearTestDb, startTestDb, stopTestDb } from './setup';
 beforeAll(startTestDb);
 afterAll(stopTestDb);
 beforeEach(clearTestDb);
@@ -52,7 +52,7 @@ const seedOrder = async () => {
 };
 
 describe('payments', () => {
-  it('keeps the order rollup in step and refuses to overpay', async () => {
+  it('keeps the order rollup in step and refuses to overpay', asTenant(async () => {
     const { order, admin } = await seedOrder();
 
     await paymentService.create(
@@ -70,9 +70,9 @@ describe('payments', () => {
         String(admin._id),
       ),
     ).rejects.toThrow(/exceeds the balance due/);
-  });
+  }));
 
-  it('checks an edited amount against the OTHER payments, not its own old value', async () => {
+  it('checks an edited amount against the OTHER payments, not its own old value', asTenant(async () => {
     const { order, admin } = await seedOrder();
 
     const payment = await paymentService.create(
@@ -86,9 +86,9 @@ describe('payments', () => {
     const settled = await Order.findById(order._id);
     expect(settled?.amountPaid).toBe(100);
     expect(settled?.paymentStatus).toBe('PAID');
-  });
+  }));
 
-  it('records every payment change on the order with a field-level diff', async () => {
+  it('records every payment change on the order with a field-level diff', asTenant(async () => {
     const { order, admin } = await seedOrder();
 
     const payment = await paymentService.create(
@@ -111,9 +111,9 @@ describe('payments', () => {
         expect.objectContaining({ field: 'method', from: 'CASH', to: 'CARD' }),
       ]),
     );
-  });
+  }));
 
-  it('rejects a payment method that does not exist', async () => {
+  it('rejects a payment method that does not exist', asTenant(async () => {
     const { order, admin } = await seedOrder();
 
     await expect(
@@ -122,5 +122,5 @@ describe('payments', () => {
         String(admin._id),
       ),
     ).rejects.toThrow(/Unknown payment method/);
-  });
+  }));
 });

@@ -1,5 +1,6 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
 import { STOCK_MOVEMENT_VALUES, type StockMovement } from '../constants';
+import { tenantPlugin } from './plugins/tenant.plugin';
 
 /**
  * Append-only ledger of every stock change. StoreItem.quantityOnHand is the
@@ -42,6 +43,8 @@ const stockMovementSchema = new Schema<IStockMovement>(
 );
 
 stockMovementSchema.index({ store: 1, product: 1, occurredAt: -1 });
+
+stockMovementSchema.plugin(tenantPlugin);
 
 export const StockMovementModel: Model<IStockMovement> = model<IStockMovement>(
   'StockMovement',

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import authService from '../services/auth.service';
+import { runInTenant } from '../lib/tenantContext';
 import { upsertTurnsUser } from '../services/turns.service';
 import ApiError from '../utils/ApiError';
 import { sendSuccess } from '../utils/ApiResponse';
@@ -35,8 +36,13 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
  * turns directly, then calls this so both token pairs exist side by side.
  */
 export const turnsSession = asyncHandler(async (req: Request, res: Response) => {
-  const user = await upsertTurnsUser(req.body);
-  const data = await authService.issueSession(user, req.headers['user-agent']);
+  // Unauthenticated, so there is no session to take the franchise from — it
+  // comes from the payload, and everything below runs inside that scope.
+  const data = await runInTenant(String(req.body.businessId), async () => {
+    const user = await upsertTurnsUser(req.body);
+    return authService.issueSession(user, req.headers['user-agent']);
+  });
+
   return sendSuccess(res, { message: 'Signed in', data });
 });
 

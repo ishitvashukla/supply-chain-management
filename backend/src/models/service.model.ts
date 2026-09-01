@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 export interface IService {
   name: string;
@@ -37,10 +38,11 @@ serviceSchema.index({ name: 1, department: 1 });
 
 // Unique only where a turns id exists. A plain sparse index would still
 // treat every locally-created row's `null` as a duplicate.
-serviceSchema.index(
-  { turnsServiceId: 1 },
-  { unique: true, partialFilterExpression: { turnsServiceId: { $type: 'string' } } },
-);
+tenantUnique(serviceSchema, { turnsServiceId: 1 }, {
+  partialFilterExpression: { turnsServiceId: { $type: 'string' } },
+});
+
+serviceSchema.plugin(tenantPlugin);
 
 export const Service: Model<IService> = model<IService>('Service', serviceSchema);
 export default Service;

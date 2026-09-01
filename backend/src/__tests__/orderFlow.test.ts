@@ -8,7 +8,7 @@ import Store from '../models/store.model';
 import StoreItem from '../models/storeItem.model';
 import User from '../models/user.model';
 import orderService from '../services/order.service';
-import { clearTestDb, startTestDb, stopTestDb } from './setup';
+import { asTenant, clearTestDb, startTestDb, stopTestDb } from './setup';
 beforeAll(startTestDb);
 afterAll(stopTestDb);
 beforeEach(clearTestDb);
@@ -48,7 +48,7 @@ const seedCatalog = async () => {
 };
 
 describe('order state machine', () => {
-  it('prices a line from the store price, including tax', async () => {
+  it('prices a line from the store price, including tax', asTenant(async () => {
     const { store, product, admin } = await seedCatalog();
 
     const order = await orderService.create(
@@ -62,9 +62,9 @@ describe('order state machine', () => {
     // The line snapshots the pack so later catalog edits can't rewrite history.
     expect(order.items[0]!.packSize).toBe(5);
     expect(order.items[0]!.unit).toBe('L');
-  });
+  }));
 
-  it('refuses a transition that is not allowed', async () => {
+  it('refuses a transition that is not allowed', asTenant(async () => {
     const { store, product, admin } = await seedCatalog();
 
     const order = await orderService.create(
@@ -75,9 +75,9 @@ describe('order state machine', () => {
     await expect(
       orderService.transition(String(order._id), ORDER_STATUS.FULFILLED, { id: String(admin._id) }),
     ).rejects.toThrow(/Cannot move an order from DRAFT to FULFILLED/);
-  });
+  }));
 
-  it('receives stock into the store when an order is fulfilled', async () => {
+  it('receives stock into the store when an order is fulfilled', asTenant(async () => {
     const { store, product, admin } = await seedCatalog();
 
     const order = await orderService.create(
@@ -98,5 +98,5 @@ describe('order state machine', () => {
 
     const item = await StoreItem.findOne({ store: store._id, product: product._id });
     expect(item?.quantityOnHand).toBe(7);
-  });
+  }));
 });

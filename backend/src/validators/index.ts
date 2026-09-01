@@ -126,15 +126,36 @@ export const createPriceListSchema = z.object({
 });
 export const updatePriceListSchema = createPriceListSchema.partial();
 
-export const createServiceSchema = z.object({
+/**
+ * A service belongs to several price lists, so `priceLists` is the real field.
+ * A single `priceList` is still accepted and folded into it — the turns tree
+ * and older callers send one at a time.
+ */
+const serviceShape = {
   name: z.string().trim().min(2, 'Service name is required'),
   department: objectId,
-  priceList: objectId,
+  priceList: objectId.optional(),
+  priceLists: z.array(objectId).optional(),
   description: z.string().trim().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
-});
-export const updateServiceSchema = createServiceSchema.partial();
+};
+
+const foldPriceList = <T extends { priceList?: string; priceLists?: string[] }>(value: T) => {
+  const { priceList, ...rest } = value;
+  const priceLists = value.priceLists ?? (priceList ? [priceList] : undefined);
+  return { ...rest, ...(priceLists ? { priceLists } : {}) };
+};
+
+export const createServiceSchema = z
+  .object(serviceShape)
+  .refine((v) => Boolean(v.priceList ?? v.priceLists?.length), {
+    message: 'A service must belong to at least one price list',
+    path: ['priceLists'],
+  })
+  .transform(foldPriceList);
+
+export const updateServiceSchema = z.object(serviceShape).partial().transform(foldPriceList);
 
 export const createCategorySchema = z.object({
   name: z.string().trim().min(2, 'Category name is required'),

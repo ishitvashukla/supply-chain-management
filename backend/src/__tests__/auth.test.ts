@@ -3,7 +3,7 @@ import { ROLES } from '../constants';
 import RefreshToken from '../models/refreshToken.model';
 import User from '../models/user.model';
 import authService from '../services/auth.service';
-import { clearTestDb, startTestDb, stopTestDb } from './setup';
+import { asTenant, clearTestDb, startTestDb, stopTestDb } from './setup';
 beforeAll(startTestDb);
 afterAll(stopTestDb);
 beforeEach(clearTestDb);
@@ -18,7 +18,7 @@ const makeUser = async () => {
 };
 
 describe('refresh token rotation', () => {
-  it('issues a new refresh token and retires the old one', async () => {
+  it('issues a new refresh token and retires the old one', asTenant(async () => {
     await makeUser();
 
     const first = await authService.login('admin@test.local', 'Password123');
@@ -26,9 +26,9 @@ describe('refresh token rotation', () => {
 
     expect(second.refreshToken).not.toBe(first.refreshToken);
     expect(second.accessToken).toBeTruthy();
-  });
+  }));
 
-  it('treats replay of a rotated token as theft and kills every session', async () => {
+  it('treats replay of a rotated token as theft and kills every session', asTenant(async () => {
     await makeUser();
 
     const first = await authService.login('admin@test.local', 'Password123');
@@ -43,9 +43,9 @@ describe('refresh token rotation', () => {
     await expect(authService.refresh(first.refreshToken)).rejects.toThrow(/revoked/i);
     // Its successor dies with it.
     await expect(authService.refresh(second.refreshToken)).rejects.toThrow(/revoked/i);
-  });
+  }));
 
-  it('signing out one device leaves the others working', async () => {
+  it('signing out one device leaves the others working', asTenant(async () => {
     await makeUser();
 
     const deviceA = await authService.login('admin@test.local', 'Password123');
@@ -55,12 +55,12 @@ describe('refresh token rotation', () => {
 
     await expect(authService.refresh(deviceA.refreshToken)).rejects.toThrow(/ended/i);
     await expect(authService.refresh(deviceB.refreshToken)).resolves.toBeTruthy();
-  });
+  }));
 
-  it('rejects an access token presented as a refresh token', async () => {
+  it('rejects an access token presented as a refresh token', asTenant(async () => {
     await makeUser();
 
     const session = await authService.login('admin@test.local', 'Password123');
     await expect(authService.refresh(session.accessToken)).rejects.toThrow(/Invalid or expired/);
-  });
+  }));
 });

@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 export interface IPriceList {
   name: string;
@@ -28,14 +29,15 @@ const priceListSchema = new Schema<IPriceList>(
 );
 
 // A price list name only has to be unique inside its own department.
-priceListSchema.index({ department: 1, name: 1 }, { unique: true });
+tenantUnique(priceListSchema, { department: 1, name: 1 });
 
 // Unique only where a turns id exists. A plain sparse index would still
 // treat every locally-created row's `null` as a duplicate.
-priceListSchema.index(
-  { turnsPriceListId: 1 },
-  { unique: true, partialFilterExpression: { turnsPriceListId: { $type: 'string' } } },
-);
+tenantUnique(priceListSchema, { turnsPriceListId: 1 }, {
+  partialFilterExpression: { turnsPriceListId: { $type: 'string' } },
+});
+
+priceListSchema.plugin(tenantPlugin);
 
 export const PriceList: Model<IPriceList> = model<IPriceList>('PriceList', priceListSchema);
 export default PriceList;

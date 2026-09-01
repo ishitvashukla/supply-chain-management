@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { ROLES, STORE_ROLES, type Role } from '../constants';
+import { runInTenant, runUnscoped } from '../lib/tenantContext';
 import User from '../models/user.model';
 import ApiError from '../utils/ApiError';
 import asyncHandler from '../utils/asyncHandler';
@@ -22,9 +23,17 @@ export const authenticate: RequestHandler = asyncHandler(async (req, _res, next)
   }
 
   // Re-read the user so a deactivated account can't keep using a live token.
-  const user = await User.findById(payload.sub);
+  // Unscoped: which franchise this request belongs to is only known once the
+  // user is loaded, so this one lookup happens before the tenant is set.
+  const user = await runUnscoped(() => User.findById(payload.sub));
   if (!user || !user.isActive) {
     throw ApiError.unauthorized('Account is no longer active');
+  }
+
+  const businessId = user.businessId ?? '';
+  if (!businessId) {
+    // Without a franchise there is nothing safe to scope queries to.
+    throw ApiError.forbidden('This account is not linked to a business');
   }
 
   req.user = {
@@ -33,9 +42,14 @@ export const authenticate: RequestHandler = asyncHandler(async (req, _res, next)
     name: user.name,
     role: user.role,
     storeId: user.store ? String(user.store) : null,
+    businessId,
   };
 
-  next();
+  // Everything downstream — controllers, services, every query — runs inside
+  // this franchise's scope.
+  await runInTenant(businessId, () => {
+    next();
+  });
 });
 
 /** Restricts a route to the given roles. Must run after `authenticate`. */

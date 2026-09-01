@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type Model, type Types } from 'mongoose';
+import { tenantPlugin, tenantUnique } from './plugins/tenant.plugin';
 
 export interface IStoreAddress {
   line1?: string;
@@ -46,7 +47,7 @@ const addressSchema = new Schema<IStoreAddress>(
 const storeSchema = new Schema<IStore>(
   {
     name: { type: String, required: [true, 'Store name is required'], trim: true },
-    code: { type: String, required: true, trim: true, uppercase: true, unique: true },
+    code: { type: String, required: true, trim: true, uppercase: true },
     turnsStoreId: { type: String, default: null },
     turnsPriceListId: { type: String, default: null },
     address: { type: addressSchema, default: {} },
@@ -65,10 +66,13 @@ storeSchema.index({ name: 'text', code: 'text' });
 
 // Unique only where a turns id exists. A plain sparse index would still
 // treat every locally-created row's `null` as a duplicate.
-storeSchema.index(
-  { turnsStoreId: 1 },
-  { unique: true, partialFilterExpression: { turnsStoreId: { $type: 'string' } } },
-);
+tenantUnique(storeSchema, { turnsStoreId: 1 }, {
+  partialFilterExpression: { turnsStoreId: { $type: 'string' } },
+});
+
+tenantUnique(storeSchema, { code: 1 });
+
+storeSchema.plugin(tenantPlugin);
 
 export const Store: Model<IStore> = model<IStore>('Store', storeSchema);
 export default Store;

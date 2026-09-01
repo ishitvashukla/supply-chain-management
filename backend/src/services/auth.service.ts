@@ -3,6 +3,7 @@ import Store from '../models/store.model';
 import User, { type UserDocument } from '../models/user.model';
 import ApiError from '../utils/ApiError';
 import crypto from 'node:crypto';
+import { runInTenant, runUnscoped } from '../lib/tenantContext';
 import env from '../config/env';
 import RefreshToken, { hashToken } from '../models/refreshToken.model';
 import { signRefreshToken, signToken, verifyRefreshToken } from '../utils/jwt';
@@ -82,8 +83,14 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
+    // Unscoped: which franchise the account belongs to is only known once it is
+    // found. Emails are unique per franchise, so a duplicate across two
+    // businesses resolves to the first — local login is a fallback path;
+    // the turns exchange is what the app actually uses.
     // `password` is select:false on the schema, so ask for it explicitly.
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await runUnscoped(() =>
+      User.findOne({ email: email.toLowerCase() }).select('+password'),
+    );
     // Same message either way — don't reveal which emails exist.
     if (!user) throw ApiError.unauthorized('Invalid email or password');
     if (!user.isActive) throw ApiError.forbidden('Account is deactivated');
@@ -116,13 +123,15 @@ export const authService = {
       throw ApiError.unauthorized('Invalid or expired refresh token');
     }
 
-    const user = await User.findById(payload.sub);
+    // Refresh tokens are keyed by an unguessable jti, so the lookup does not
+    // need a franchise — and cannot have one, since the caller has no session.
+    const user = await runUnscoped(() => User.findById(payload.sub));
     if (!user || !user.isActive) throw ApiError.unauthorized('Account is no longer active');
     if (user.tokenVersion !== payload.v) {
       throw ApiError.unauthorized('Session was revoked — please sign in again');
     }
 
-    const record = await RefreshToken.findOne({ jti: payload.jti });
+    const record = await runUnscoped(() => RefreshToken.findOne({ jti: payload.jti }));
     if (!record) throw ApiError.unauthorized('Refresh token is no longer valid');
     if (record.tokenHash !== hashToken(refreshToken)) {
       throw ApiError.unauthorized('Refresh token does not match');
@@ -141,9 +150,11 @@ export const authService = {
       // Inside the grace window that is normal, so issue a fresh pair rather
       // than treating it as an attack.
       if (age <= env.refreshGraceSeconds * 1000 && record.replacedBy) {
-        const replacement = await RefreshToken.findOne({ jti: record.replacedBy });
+        const replacement = await runUnscoped(() =>
+          RefreshToken.findOne({ jti: record.replacedBy }),
+        );
         if (replacement && !replacement.revokedAt) {
-          return issueSession(user, userAgent);
+          return runInTenant(user.businessId ?? '', () => issueSession(user, userAgent));
         }
       }
 
@@ -153,7 +164,7 @@ export const authService = {
       throw ApiError.unauthorized('Session was revoked — please sign in again');
     }
 
-    const next = await issueSession(user, userAgent);
+    const next = await runInTenant(user.businessId ?? '', () => issueSession(user, userAgent));
     const nextPayload = verifyRefreshToken(next.refreshToken);
 
     record.revokedAt = new Date();
@@ -179,9 +190,11 @@ export const authService = {
   async revokeOne(refreshToken: string) {
     try {
       const payload = verifyRefreshToken(refreshToken);
-      await RefreshToken.updateOne(
-        { jti: payload.jti, revokedAt: null },
-        { $set: { revokedAt: new Date(), revokedReason: 'LOGOUT' } },
+      await runUnscoped(() =>
+        RefreshToken.updateOne(
+          { jti: payload.jti, revokedAt: null },
+          { $set: { revokedAt: new Date(), revokedReason: 'LOGOUT' } },
+        ),
       );
     } catch {
       // An unparseable token has nothing to revoke — signing out still succeeds.
