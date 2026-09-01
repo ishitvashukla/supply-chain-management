@@ -1,0 +1,16 @@
+{
+  "name": "supply-chain-management",
+  "private": true,
+  "description": "Multi-store supply chain management — API and web app in one deployable unit",
+  "scripts": {
+    "install:all": "npm --prefix backend ci && npm --prefix frontend ci",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "npm --prefix frontend run build && node scripts/copy-client.mjs",
+    "build:backend": "npm --prefix backend run build",
+    "start": "npm --prefix backend run start",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend exec tsc -b --noEmit",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}

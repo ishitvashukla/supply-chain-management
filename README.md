@@ -35,6 +35,41 @@ refresh independently, and if either expires and cannot be refreshed you are
 signed out of both — a half-authenticated state where some screens work and
 others 401 is never allowed.
 
+## Deploying
+
+The API and the web app ship as **one process**: the build puts the SPA under
+`backend/public/client`, and the server serves it alongside `/api/v1`. That
+means one URL, one certificate, no CORS, and nothing to keep in step between two
+deployments.
+
+```bash
+npm run install:all   # install both workspaces
+npm run build         # build SPA → copy into backend → compile API
+npm start             # serve everything on $PORT
+```
+
+### Free hosting
+
+`render.yaml` is a Render blueprint on the **free** plan — point Render at the
+repo and it picks it up. A free service sleeps after ~15 minutes idle and takes
+~30s to wake, which is fine for testing. Set `MONGO_URI` in the dashboard (the
+JWT secrets are generated for you).
+
+The `Dockerfile` is plain multi-stage Docker, so Fly.io, Railway or Koyeb work
+equally well. To deploy without Docker at all, use build `npm run install:all &&
+npm run build` and start `npm start`.
+
+Required environment: `MONGO_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`. The turns
+values have working defaults — see `backend/.env.example`.
+
+### Why turns is proxied
+
+The browser never calls turns directly. Turns only returns CORS headers for
+allowlisted origins, and a deployed origin is not one of them, so calls are
+relayed through `/api/v1/turns/:businessId/*`. The relay refuses any host
+outside `turnsapp.com` / `sifabso.com`, so it cannot be used as an open proxy.
+Dev and production behave identically as a result.
+
 ## Tests
 
 ```bash

@@ -10,6 +10,7 @@ import paymentRoutes from './payment.routes';
 import productRoutes from './product.routes';
 import statsRoutes from './stats.routes';
 import storeRoutes, { storeItemRouter } from './store.routes';
+import turnsProxyRoutes from './turnsProxy.routes';
 import userRoutes from './user.routes';
 
 const router = Router();
@@ -27,5 +28,7 @@ router.use('/payment-methods', paymentMethodRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/stats', statsRoutes);
+// Relay for the turns backend — the browser cannot call it cross-origin.
+router.use('/turns', turnsProxyRoutes);
 
 export default router;

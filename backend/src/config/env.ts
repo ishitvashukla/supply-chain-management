@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -31,6 +33,15 @@ export const env = {
   turnsAppVersion: process.env.TURNS_APP_VERSION ?? '10000',
   turnsOsVersion: process.env.TURNS_OS_VERSION ?? '24',
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  /**
+   * Directory holding the built frontend. When set, this process serves the
+   * SPA as well as the API; when unset (local dev) vite serves it instead.
+   */
+  clientDir: process.env.CLIENT_DIR
+    ? path.resolve(process.env.CLIENT_DIR)
+    : existsSync(path.resolve(process.cwd(), 'public/client/index.html'))
+      ? path.resolve(process.cwd(), 'public/client')
+      : null,
   get isProd(): boolean {
     return this.nodeEnv === 'production';
   },

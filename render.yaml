@@ -1,0 +1,35 @@
+# Render blueprint — free tier.
+# A free service sleeps after ~15 minutes idle and takes ~30s to wake, which is
+# fine for testing. Secrets are marked sync:false so they are entered in the
+# dashboard rather than committed here.
+services:
+  - type: web
+    name: supply-chain-management
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 3d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: TURNS_BASE_URL
+        value: https://{BUSINESS_ID}.turnsapp.com/
+      - key: TURNS_APP_NAME
+        value: 1.0.0.0
+      - key: TURNS_APP_VERSION
+        value: "10000"
+      - key: TURNS_OS_VERSION
+        value: "24"
+      # The SPA is served from this same origin, so no cross-origin access.
+      - key: CORS_ORIGIN
+        value: "*"
