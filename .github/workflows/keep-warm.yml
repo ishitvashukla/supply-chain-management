@@ -1,0 +1,35 @@
+name: Keep warm
+
+# Render's free plan sleeps a service after ~15 minutes idle, and the next
+# request waits ~30-60s for a cold start — during which its router answers
+# 404 with `x-render-routing: no-server`. That is the "fails a few times, then
+# works" pattern. Pinging every 10 minutes keeps the instance awake.
+#
+# Scheduled runs are best-effort and GitHub may delay them under load; this
+# reduces cold starts rather than eliminating them.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health
+        env:
+          URL: https://supply-chain-management-zs2d.onrender.com/api/v1/health
+        run: |
+          # A sleeping instance needs a slow first request, then answers.
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -s -o /tmp/out -w '%{http_code}' --max-time 90 "$URL" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "awake (attempt $attempt)"
+              cat /tmp/out
+              exit 0
+            fi
+            echo "attempt $attempt → $code, waiting for cold start…"
+            sleep 20
+          done
+          echo "still not answering after 5 attempts"
+          exit 1
