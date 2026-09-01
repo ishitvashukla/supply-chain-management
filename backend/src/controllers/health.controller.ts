@@ -12,12 +12,26 @@ const DB_STATES: Record<number, string> = {
   3: 'disconnecting',
 };
 
+/**
+ * Which build is live.
+ *
+ * Render exposes the deployed commit as RENDER_GIT_COMMIT; other hosts vary, so
+ * GIT_COMMIT is honoured too. Without this there is no way to tell from outside
+ * whether a push actually reached the running service.
+ */
+const buildInfo = {
+  commit: (process.env.RENDER_GIT_COMMIT ?? process.env.GIT_COMMIT ?? 'unknown').slice(0, 7),
+  branch: process.env.RENDER_GIT_BRANCH ?? process.env.GIT_BRANCH ?? 'unknown',
+  startedAt: new Date().toISOString(),
+};
+
 export const health = asyncHandler(async (_req: Request, res: Response) =>
   sendSuccess(res, {
     message: 'Server is healthy',
     data: {
       status: 'ok',
       env: env.nodeEnv,
+      build: buildInfo,
       timestamp: toIso(),
       uptime: dayjs.duration(process.uptime(), 'seconds').humanize(),
       database: {
